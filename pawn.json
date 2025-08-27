@@ -3,14 +3,14 @@
     "repo": "samp-textdraw-streamer",
     "resources": [
         {
-            "name": "^textdraw-streamer.(.*).zip$",
+            "name": "textdraw-streamer.zip",
             "platform": "linux",
             "archive": true,
             "includes": ["pawno/include"],
             "plugins": ["plugins/textdraw-streamer.so"]
         },
         {
-            "name": "^textdraw-streamer.(.*).zip$",
+            "name": "textdraw-streamer.zip",
             "platform": "windows",
             "archive": true,
             "includes": ["pawno/include"],
