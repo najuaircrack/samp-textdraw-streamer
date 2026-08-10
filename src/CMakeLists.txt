@@ -1,8 +1,13 @@
 set(CMAKE_SUPPRESS_REGENERATION true)
 
-project(textdraw-streamer)
+# CMake 4 removed compatibility with a < 3.5 minimum, which "2.8" was.
+cmake_minimum_required(VERSION 3.10)
 
-cmake_minimum_required(VERSION 2.8)
+project(textdraw-streamer C CXX)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(AMXConfig)
@@ -16,6 +21,13 @@ include_directories(
 
 add_definitions(-DSAMPGDK_AMALGAMATION)
 add_definitions(-DFMT_HEADER_ONLY)
+
+if(MSVC)
+  # service.cpp guards fmt::sprintf with try/catch so a malformed script format
+  # string cannot propagate out; that needs unwind semantics rather than relying
+  # on /EHsc arriving via CMake's default flags.
+  add_compile_options(/EHsc)
+endif()
 
 add_samp_plugin(textdraw-streamer
 	amxplugin.cpp
