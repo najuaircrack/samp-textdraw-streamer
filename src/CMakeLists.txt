@@ -32,14 +32,17 @@ endif()
 if(UNIX AND NOT APPLE)
   # Keep the .so loadable on older hosts than the one that built it.
   #
-  # glibc 2.38 introduced __isoc23_strtol / __isoc23_sscanf and, from GCC 13 on,
-  # the plain names are redirected to those versioned symbols. A plugin built on
-  # a current distro then refuses to load with:
+  # Two separate glibc traps, both decided by the *build* machine:
   #
-  #   version `GLIBC_2.38' not found (required by textdraw-streamer.so)
+  # 1. glibc 2.38 + GCC 13 redirect plain strtol/sscanf to __isoc23_* symbols
+  #    tagged GLIBC_2.38. Compiling the C sources as C17 keeps the old
+  #    unversioned names. This matters when building on a current distro; on an
+  #    older one it is simply a no-op.
   #
-  # Nothing here needs C23 semantics, so compile the C sources as C17. The
-  # symbols resolve to the long-standing unversioned ones instead.
+  # 2. glibc 2.34 merged libpthread/libdl/librt into libc, so sampgdk's
+  #    dlopen/pthread calls pick up GLIBC_2.34. No flag avoids that one -- it
+  #    requires building against an older glibc, which is why CI builds inside
+  #    a Debian 11 (glibc 2.31) container.
   add_compile_options($<$<COMPILE_LANGUAGE:C>:-std=gnu17>)
 endif()
 

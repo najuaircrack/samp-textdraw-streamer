@@ -10,18 +10,38 @@ on:
 jobs:
   linux:
     name: Linux (x86)
-    # Pinned deliberately, not "latest": the plugin must load on older hosts
-    # (Debian 11/12, CentOS 7 era) that game panels still run. 22.04 ships
-    # glibc 2.35, so the .so cannot pick up a GLIBC_2.38+ requirement.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    # Built inside an old-glibc container rather than on the runner image.
+    # Whatever glibc builds the .so becomes its minimum requirement, and game
+    # hosts routinely run older distros than "ubuntu-latest" points at.
+    #
+    # Debian 11 ships glibc 2.31, which is deliberately *before* the 2.34
+    # libpthread/libdl/librt merge into libc. Building on anything 2.34+ makes
+    # sampgdk's dlopen/pthread calls demand GLIBC_2.34, which is what broke
+    # loading on real servers. 2.31 caps the requirement structurally.
+    container: debian:11
     steps:
-      - uses: actions/checkout@v4
-
-      # SA-MP plugins are loaded by a 32-bit server, so the .so must be x86.
-      - name: Install 32-bit toolchain
+      # Before checkout: the container is bare, and actions/checkout wants git.
+      - name: Install toolchain
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib
+          set -e
+
+          # Bullseye's LTS window has ended, so its packages may have moved to
+          # archive.debian.org. Fall back rather than fail with a bare 404.
+          if ! apt-get update 2>/dev/null; then
+            echo "Primary mirrors unavailable; using archive.debian.org"
+            {
+              echo "deb http://archive.debian.org/debian bullseye main"
+              echo "deb http://archive.debian.org/debian-security bullseye-security main"
+            } > /etc/apt/sources.list
+            apt-get -o Acquire::Check-Valid-Until=false update
+          fi
+
+          apt-get install -y --no-install-recommends \
+            build-essential gcc-multilib g++-multilib \
+            cmake file binutils git ca-certificates
+
+      - uses: actions/checkout@v4
 
       - name: Configure
         run: cmake -S src -B build -DCMAKE_BUILD_TYPE=Release
@@ -34,9 +54,9 @@ jobs:
           file build/textdraw-streamer.so
           file build/textdraw-streamer.so | grep -q 'ELF 32-bit'
 
-          # Fail the build rather than ship a .so that will not load. 2.32 is
-          # comfortably below anything a current game host runs.
-          max_allowed="2.32"
+          # Fail the build rather than ship a .so that will not load. The
+          # container's own glibc (2.31) is the ceiling this can produce.
+          max_allowed="2.31"
           required=$(objdump -T build/textdraw-streamer.so \
             | grep -o 'GLIBC_[0-9]\+\.[0-9]\+' | sed 's/GLIBC_//' | sort -uV)
 
