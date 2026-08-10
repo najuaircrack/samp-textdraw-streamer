@@ -29,6 +29,20 @@ if(MSVC)
   add_compile_options(/EHsc)
 endif()
 
+if(UNIX AND NOT APPLE)
+  # Keep the .so loadable on older hosts than the one that built it.
+  #
+  # glibc 2.38 introduced __isoc23_strtol / __isoc23_sscanf and, from GCC 13 on,
+  # the plain names are redirected to those versioned symbols. A plugin built on
+  # a current distro then refuses to load with:
+  #
+  #   version `GLIBC_2.38' not found (required by textdraw-streamer.so)
+  #
+  # Nothing here needs C23 semantics, so compile the C sources as C17. The
+  # symbols resolve to the long-standing unversioned ones instead.
+  add_compile_options($<$<COMPILE_LANGUAGE:C>:-std=gnu17>)
+endif()
+
 add_samp_plugin(textdraw-streamer
 	amxplugin.cpp
 	compilation_date.hpp
@@ -51,3 +65,10 @@ add_samp_plugin(textdraw-streamer
 	textdraw_data.hpp
 	textdraw-streamer.def
 )
+
+if(UNIX AND NOT APPLE)
+  # libstdc++ and libgcc are the other moving target: static-link them so the
+  # host does not need a runtime as new as the build machine's either.
+  set_property(TARGET textdraw-streamer APPEND_STRING PROPERTY
+               LINK_FLAGS " -static-libstdc++ -static-libgcc")
+endif()

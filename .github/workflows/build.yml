@@ -10,7 +10,10 @@ on:
 jobs:
   linux:
     name: Linux (x86)
-    runs-on: ubuntu-latest
+    # Pinned deliberately, not "latest": the plugin must load on older hosts
+    # (Debian 11/12, CentOS 7 era) that game panels still run. 22.04 ships
+    # glibc 2.35, so the .so cannot pick up a GLIBC_2.38+ requirement.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -26,10 +29,26 @@ jobs:
       - name: Build
         run: cmake --build build --config Release -j
 
-      - name: Verify the artifact is 32-bit
+      - name: Verify the artifact is 32-bit and portable
         run: |
           file build/textdraw-streamer.so
           file build/textdraw-streamer.so | grep -q 'ELF 32-bit'
+
+          # Fail the build rather than ship a .so that will not load. 2.32 is
+          # comfortably below anything a current game host runs.
+          max_allowed="2.32"
+          required=$(objdump -T build/textdraw-streamer.so \
+            | grep -o 'GLIBC_[0-9]\+\.[0-9]\+' | sed 's/GLIBC_//' | sort -uV)
+
+          echo "glibc versions required:"
+          echo "$required" | sed 's/^/  /'
+
+          highest=$(echo "$required" | tail -1)
+          if [ "$(printf '%s\n%s\n' "$max_allowed" "$highest" | sort -V | tail -1)" != "$max_allowed" ]; then
+            echo "::error::Requires GLIBC_$highest, above the $max_allowed baseline."
+            exit 1
+          fi
+          echo "OK: highest requirement GLIBC_$highest <= $max_allowed"
 
       - uses: actions/upload-artifact@v4
         with:

@@ -18,4 +18,4 @@
 // MAJOR held the minor (0), which printed correctly by luck.
 #define		VERSION_MAJOR	(2)
 #define		VERSION_MINOR	(0)
-#define		VERSION_PATCH	(3)
+#define		VERSION_PATCH	(5)
